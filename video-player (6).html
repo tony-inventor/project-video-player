@@ -1,0 +1,2170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Player</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #0f0f11;
+        --surface: #1a1a1e;
+        --surface2: #222228;
+        --border: #2e2e38;
+        --border2: #3a3a48;
+        --text: #e8e8f0;
+        --text2: #8888a0;
+        --accent: #7c6aff;
+        --accent-dim: rgba(124, 106, 255, 0.15);
+        --accent-border: rgba(124, 106, 255, 0.4);
+        --yellow: #ffe066;
+        --green: #4ade80;
+        --radius: 10px;
+        --radius-sm: 6px;
+        --sidebar-w: 280px;
+        --controls-h: 96px;
+      }
+
+      html,
+      body {
+        height: 100%;
+        min-height: 100dvh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "IBM Plex Sans", sans-serif;
+        font-size: 14px;
+        overflow: hidden;
+      }
+
+      /* ── Shell ── */
+      .shell {
+        display: flex;
+        flex-direction: column;
+        min-height: 100dvh;
+        height: 100vh;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 16px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        background: var(--surface);
+        z-index: 10;
+      }
+      header .logo {
+        width: 24px;
+        height: 24px;
+        background: var(--accent);
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      header .logo svg {
+        width: 13px;
+        height: 13px;
+        fill: #fff;
+      }
+      header h1 {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+      }
+      .now-playing {
+        display: none;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--text2);
+        overflow: hidden;
+      }
+      .now-playing-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        flex-shrink: 0;
+        animation: pulse 1.4s infinite;
+      }
+      .now-playing span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      .header-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      header .tagline {
+        font-size: 11px;
+        color: var(--text2);
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      /* ── Body row ── */
+      .body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      /* ── Sidebar ── */
+      .sidebar {
+        width: var(--sidebar-w);
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        background: var(--surface);
+        overflow: hidden;
+        position: relative;
+        transition: width 0.2s ease;
+        min-width: 0;
+      }
+      .sidebar.collapsed {
+        width: 0 !important;
+        border-right: none;
+      }
+      .sidebar.collapsed .sidebar-inner {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .sidebar-inner {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+        opacity: 1;
+        transition: opacity 0.15s;
+        min-width: 160px;
+      }
+
+      .resize-handle {
+        position: absolute;
+        top: 0;
+        right: -3px;
+        bottom: 0;
+        width: 6px;
+        cursor: col-resize;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .resize-handle::after {
+        content: "";
+        display: block;
+        width: 2px;
+        height: 32px;
+        background: var(--border2);
+        border-radius: 2px;
+        transition:
+          background 0.15s,
+          height 0.15s;
+      }
+      .resize-handle:hover::after,
+      .resize-handle.dragging::after {
+        background: var(--accent);
+        height: 48px;
+      }
+      .sidebar.collapsed .resize-handle {
+        display: none;
+      }
+
+      .sidebar-toggle {
+        flex-shrink: 0;
+        width: 16px;
+        background: var(--surface2);
+        border: none;
+        border-left: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text2);
+        transition:
+          background 0.15s,
+          color 0.15s;
+        z-index: 20;
+        padding: 0;
+      }
+      .sidebar-toggle:hover {
+        background: var(--border);
+        color: var(--text);
+      }
+      .sidebar-toggle svg {
+        width: 11px;
+        height: 11px;
+        transition: transform 0.2s;
+        flex-shrink: 0;
+      }
+      .sidebar-toggle.collapsed svg {
+        transform: rotate(180deg);
+      }
+
+      .sidebar-header {
+        padding: 12px 14px 10px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .sidebar-header p {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text2);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        font-family: "IBM Plex Mono", monospace;
+        margin-bottom: 8px;
+      }
+
+      .btn-folder {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--accent-dim);
+        border: 1px solid var(--accent-border);
+        border-radius: var(--radius-sm);
+        padding: 7px 12px;
+        cursor: pointer;
+        font-size: 13px;
+        color: var(--accent);
+        font-family: inherit;
+        transition: all 0.15s;
+      }
+      .btn-folder:hover {
+        background: rgba(124, 106, 255, 0.25);
+      }
+      .btn-folder svg {
+        width: 15px;
+        height: 15px;
+        flex-shrink: 0;
+      }
+
+      .folder-name {
+        padding: 6px 14px;
+        font-size: 11px;
+        color: var(--text2);
+        font-family: "IBM Plex Mono", monospace;
+        border-bottom: 1px solid var(--border);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .folder-name.hidden {
+        display: none;
+      }
+
+      .search-wrap {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .search-wrap input {
+        width: 100%;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 5px 10px;
+        font-size: 12px;
+        color: var(--text);
+        font-family: inherit;
+        outline: none;
+      }
+      .search-wrap input:focus {
+        border-color: var(--accent-border);
+      }
+      .search-wrap input::placeholder {
+        color: var(--text2);
+      }
+      .search-wrap.hidden {
+        display: none;
+      }
+
+      .file-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 6px 0;
+      }
+      .file-list::-webkit-scrollbar {
+        width: 4px;
+      }
+      .file-list::-webkit-scrollbar-thumb {
+        background: var(--border2);
+        border-radius: 2px;
+      }
+
+      .file-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 7px 14px;
+        cursor: pointer;
+        transition: background 0.1s;
+        min-width: 0;
+      }
+      .file-item:hover {
+        background: var(--surface2);
+      }
+      .file-item.active {
+        background: var(--accent-dim);
+      }
+      .file-item.active .fi-name {
+        color: var(--accent);
+      }
+      .file-item svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        opacity: 0.5;
+      }
+      .file-item.active svg {
+        opacity: 1;
+        color: var(--accent);
+      }
+      .fi-name {
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+      }
+      .fi-ext {
+        font-size: 10px;
+        color: var(--text2);
+        font-family: "IBM Plex Mono", monospace;
+        flex-shrink: 0;
+      }
+      .empty-list {
+        padding: 24px 14px;
+        text-align: center;
+        color: var(--text2);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      /* ── Main column ── */
+      .main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+        position: relative;
+      }
+
+      /* ── Video area (grows to fill) ── */
+      .video-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: center;
+        background: #000;
+        overflow: hidden;
+        position: relative;
+      }
+
+      /* Drop zone centred in video area */
+      #drop-zone {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 1.5px dashed var(--border2);
+        border-radius: 0;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: var(--bg);
+        gap: 8px;
+      }
+      #drop-zone:hover,
+      #drop-zone.drag {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+      }
+      #drop-zone svg {
+        width: 36px;
+        height: 36px;
+        stroke: var(--text2);
+      }
+      #drop-zone p {
+        font-size: 15px;
+        font-weight: 500;
+      }
+      #drop-zone small {
+        color: var(--text2);
+        font-size: 12px;
+      }
+
+      /* Video container fills the area */
+      .video-container {
+        position: absolute;
+        inset: 0;
+        display: none;
+        background: #000;
+        cursor: pointer;
+      }
+      .video-container.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+
+      #click-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+      }
+
+      #fs-flash {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s;
+        z-index: 5;
+      }
+      #fs-flash svg {
+        width: 28px;
+        height: 28px;
+        stroke: #fff;
+        fill: none;
+      }
+
+      .video-area:fullscreen {
+        background: #000;
+      }
+      .video-area:fullscreen video {
+        max-height: 100vh;
+      }
+      .video-area:-webkit-full-screen {
+        background: #000;
+      }
+
+      #pause-flash {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s;
+        z-index: 4;
+      }
+      #pause-flash svg {
+        width: 28px;
+        height: 28px;
+        fill: #fff;
+      }
+
+      #subtitle-overlay {
+        position: absolute;
+        bottom: 14px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        padding: 0 16px;
+        z-index: 3;
+      }
+      .sub-line {
+        display: none;
+        padding: 4px 12px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.78);
+        max-width: 92%;
+        word-break: break-word;
+        line-height: 1.4;
+      }
+      #sub-line-1 {
+        font-size: 15px;
+        font-weight: 500;
+        color: #fff;
+      }
+      #sub-line-2 {
+        font-size: 18px;
+        font-weight: 500;
+        color: var(--yellow);
+      }
+
+      /* Audio cover */
+      .audio-cover {
+        position: absolute;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
+        gap: 12px;
+      }
+      .audio-cover.active {
+        display: flex;
+      }
+      .audio-cover svg {
+        width: 52px;
+        height: 52px;
+        stroke: var(--accent);
+        opacity: 0.6;
+      }
+      .audio-cover p {
+        font-size: 14px;
+        font-weight: 500;
+        text-align: center;
+        max-width: 80%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--text);
+      }
+
+      /* Resume bar — floats over the video area */
+      .resume-bar {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        white-space: nowrap;
+        background: rgba(15, 15, 17, 0.92);
+        border: 1px solid var(--accent-border);
+        border-radius: var(--radius-sm);
+        padding: 8px 14px;
+        display: none;
+        align-items: center;
+        gap: 12px;
+        backdrop-filter: blur(8px);
+      }
+      .resume-bar span {
+        font-size: 13px;
+        color: var(--accent);
+      }
+      .resume-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      /* ── Bottom controls bar ── */
+      .controls-bar {
+        flex-shrink: 0;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        z-index: 10;
+      }
+
+      /* Seek row */
+      .seek-row {
+        padding: 8px 14px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      /* Buttons row */
+      .btn-row {
+        padding: 6px 14px 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: nowrap;
+      }
+
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 4px;
+        background: var(--border2);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 13px;
+        height: 13px;
+        background: var(--accent);
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 0 3px rgba(124, 106, 255, 0.2);
+      }
+      input[type="range"]:hover::-webkit-slider-thumb {
+        box-shadow: 0 0 0 5px rgba(124, 106, 255, 0.25);
+      }
+      #seek {
+        flex: 1;
+      }
+
+      .time {
+        font-size: 11px;
+        color: var(--text2);
+        font-family: "IBM Plex Mono", monospace;
+        white-space: nowrap;
+      }
+      .file-name-label {
+        font-size: 11px;
+        color: var(--text2);
+        font-family: "IBM Plex Mono", monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .btn-icon {
+        background: transparent;
+        border: none;
+        padding: 5px;
+        cursor: pointer;
+        color: var(--text2);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.15s;
+        border-radius: var(--radius-sm);
+        flex-shrink: 0;
+      }
+      .btn-icon:hover {
+        color: var(--text);
+        background: var(--surface2);
+      }
+      .btn-icon.active {
+        color: var(--accent);
+      }
+      .btn-icon svg {
+        width: 18px;
+        height: 18px;
+      }
+      .btn-icon.lg svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      .divider-v {
+        width: 1px;
+        height: 18px;
+        background: var(--border);
+        flex-shrink: 0;
+        margin: 0 2px;
+      }
+
+      .speed-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .spd-btn {
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        padding: 3px 7px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text2);
+        font-family: "IBM Plex Mono", monospace;
+        transition: all 0.12s;
+      }
+      .spd-btn:hover {
+        color: var(--text);
+        border-color: var(--border2);
+      }
+      .spd-btn.active {
+        background: var(--accent-dim);
+        color: var(--accent);
+        border-color: var(--accent-border);
+      }
+      #vol {
+        width: 72px;
+      }
+      #spd-fine {
+        width: 64px;
+      }
+      #spd-label {
+        font-size: 11px;
+        color: var(--accent);
+        font-family: "IBM Plex Mono", monospace;
+        min-width: 30px;
+      }
+
+      .audio-track-wrap {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 8px;
+        border: 1px solid rgba(255, 99, 132, 0.35);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 99, 132, 0.08);
+        width: 100%;
+        margin-bottom: 8px;
+      }
+      .audio-track-wrap.dual {
+        border-color: rgba(74, 222, 128, 0.45);
+        background: rgba(74, 222, 128, 0.08);
+      }
+      .audio-track-wrap.dual label {
+        color: #b7f7cd;
+      }
+      .audio-track-wrap.single {
+        border-color: rgba(148, 163, 184, 0.35);
+        background: rgba(148, 163, 184, 0.08);
+      }
+      .audio-track-wrap.single label {
+        color: #cbd5e1;
+      }
+      .audio-track-wrap label {
+        font-size: 11px;
+        color: #ffb3c1;
+        font-family: "IBM Plex Mono", monospace;
+      }
+      .audio-track-wrap select {
+        background: var(--surface2);
+        color: var(--text);
+        border: 1px solid rgba(255, 99, 132, 0.35);
+        border-radius: var(--radius-sm);
+        padding: 3px 6px;
+        font-size: 11px;
+        font-family: inherit;
+      }
+
+      /* ── Subtitle drawer ── */
+      .sub-drawer {
+        overflow: hidden;
+        max-height: 0;
+        transition:
+          max-height 0.25s ease,
+          border-top 0.25s;
+        background: var(--surface2);
+      }
+      .sub-drawer.open {
+        max-height: 200px;
+        border-top: 1px solid var(--border);
+      }
+      .sub-drawer-inner {
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+      }
+      .sub-row {
+        display: flex;
+        gap: 12px;
+        align-items: stretch;
+      }
+
+      .sub-slot {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        flex: 1;
+        min-width: 0;
+      }
+      .sub-upload {
+        border: 1.5px dashed var(--border2);
+        border-radius: var(--radius-sm);
+        padding: 7px 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        transition: all 0.15s;
+        font-size: 12px;
+        color: var(--text2);
+        min-width: 0;
+        overflow: hidden;
+      }
+      .sub-upload:hover {
+        border-color: var(--accent);
+        color: var(--text);
+        background: var(--accent-dim);
+      }
+      .sub-upload.loaded {
+        border-color: var(--green);
+        color: var(--green);
+        background: rgba(74, 222, 128, 0.08);
+        border-style: solid;
+      }
+      .sub-upload svg {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+      }
+      .sub-upload .name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+      }
+      .badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 3px;
+        flex-shrink: 0;
+        font-family: "IBM Plex Mono", monospace;
+      }
+      .badge-en {
+        background: #1a3a5c;
+        color: #7ab8f5;
+      }
+      .badge-zh {
+        background: #3a2800;
+        color: var(--yellow);
+      }
+
+      .sub-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .sub-controls label {
+        font-size: 11px;
+        color: var(--text2);
+      }
+      .sub-controls input[type="range"] {
+        width: 60px;
+      }
+      .sz-label {
+        font-size: 11px;
+        color: var(--text2);
+        font-family: "IBM Plex Mono", monospace;
+        min-width: 28px;
+      }
+      .sub-tog {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 2px 8px;
+        cursor: pointer;
+        font-size: 11px;
+        color: var(--text2);
+        font-family: inherit;
+        transition: all 0.12s;
+      }
+      .sub-tog:hover {
+        border-color: var(--border2);
+        color: var(--text);
+      }
+      .sub-tog.active {
+        background: var(--accent-dim);
+        color: var(--accent);
+        border-color: var(--accent-border);
+      }
+
+      /* hints tooltip */
+      .hints-popup {
+        position: absolute;
+        bottom: calc(var(--controls-h) + 8px);
+        right: 14px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 10px 14px;
+        display: none;
+        flex-direction: column;
+        gap: 5px;
+        z-index: 30;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      }
+      .hints-popup.open {
+        display: flex;
+      }
+      .hint {
+        font-size: 11px;
+        color: var(--text2);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      @media (max-width: 980px) {
+        :root {
+          --sidebar-w: 100%;
+          --controls-h: 112px;
+        }
+
+        html,
+        body,
+        .shell {
+          min-height: 100dvh;
+          height: 100dvh;
+          overflow: hidden;
+        }
+
+        .body {
+          flex-direction: column;
+          min-height: 0;
+        }
+
+        .sidebar {
+          width: 100%;
+          max-height: 42vh;
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-toggle {
+          display: none;
+        }
+
+        .video-area {
+          min-height: 0;
+        }
+
+        .controls-bar {
+          padding-bottom: calc(8px + env(safe-area-inset-bottom));
+        }
+
+        .seek-row,
+        .btn-row {
+          padding-left: 10px;
+          padding-right: 10px;
+        }
+
+        .btn-row {
+          flex-wrap: wrap;
+          gap: 6px;
+          align-items: center;
+        }
+
+        .file-name-label {
+          max-width: 46vw;
+        }
+
+        #vol {
+          width: 56px;
+        }
+
+        #spd-fine {
+          width: 54px;
+        }
+
+        .speed-row {
+          flex-wrap: wrap;
+        }
+      }
+
+      @media (max-width: 640px) {
+        header {
+          padding: 8px 10px;
+        }
+
+        header .tagline {
+          display: none;
+        }
+
+        .seek-row {
+          gap: 8px;
+        }
+
+        .file-name-label {
+          max-width: 34vw;
+          font-size: 10px;
+        }
+
+        .time {
+          font-size: 10px;
+        }
+
+        .btn-icon svg {
+          width: 16px;
+          height: 16px;
+        }
+
+        .btn-icon.lg svg {
+          width: 18px;
+          height: 18px;
+        }
+      }
+
+      kbd {
+        background: var(--surface);
+        border: 1px solid var(--border2);
+        border-radius: 3px;
+        padding: 1px 5px;
+        font-size: 11px;
+        font-family: "IBM Plex Mono", monospace;
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="logo">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 000-1.69L9.54 5.98A1 1 0 008 6.82z" />
+          </svg>
+        </div>
+        <h1>Video Player</h1>
+        <div class="now-playing" id="now-playing">
+          <div class="now-playing-dot"></div>
+          <span id="now-playing-label"></span>
+        </div>
+        <div class="header-right">
+          <span class="tagline">speed · dual subs · dual audio · resume</span>
+        </div>
+      </header>
+
+      <div class="body">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+          <div class="sidebar-inner">
+            <div class="sidebar-header">
+              <p>Library</p>
+              <button
+                class="btn-folder"
+                onclick="document.getElementById('folder-input').click()">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path
+                    d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                </svg>
+                Open folder
+              </button>
+              <input
+                type="file"
+                id="folder-input"
+                webkitdirectory
+                multiple
+                accept="video/*,audio/*"
+                style="display: none"
+                onchange="loadFolder(this.files)" />
+            </div>
+            <div class="folder-name hidden" id="folder-name-bar"></div>
+            <div class="search-wrap hidden" id="search-wrap">
+              <input
+                type="text"
+                id="search-input"
+                placeholder="Search files…"
+                oninput="filterList(this.value)" />
+            </div>
+            <div class="file-list" id="file-list">
+              <div class="empty-list">
+                Open a folder to browse<br />your media files
+              </div>
+            </div>
+          </div>
+          <div class="resize-handle" id="resize-handle"></div>
+        </aside>
+
+        <button
+          class="sidebar-toggle"
+          id="sidebar-toggle"
+          title="Toggle sidebar (B)"
+          onclick="toggleSidebar()">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+
+        <!-- Main column -->
+        <div class="main">
+          <!-- Video area -->
+          <div class="video-area" id="video-area">
+            <!-- Drop zone -->
+            <div
+              id="drop-zone"
+              onclick="document.getElementById('file-input').click()"
+              ondragover="onDragOver(event)"
+              ondragleave="onDragLeave(event)"
+              ondrop="dropVideo(event)">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <path d="M8 21h8M12 17v4" />
+                <path d="M10 10l2-2 2 2M12 8v5" />
+              </svg>
+              <p>Open a video or audio file</p>
+              <small
+                >Click, drag & drop, or pick a folder from the sidebar</small
+              >
+              <input
+                type="file"
+                id="file-input"
+                accept="video/*,audio/*,.m3u8,.mpd"
+                style="display: none"
+                onchange="loadFile(this.files[0])" />
+            </div>
+
+            <!-- Video container -->
+            <div class="video-container" id="video-container">
+              <video id="vid" preload="metadata"></video>
+              <div id="click-overlay"></div>
+              <div id="pause-flash">
+                <svg
+                  id="flash-svg-play"
+                  viewBox="0 0 24 24"
+                  style="display: none">
+                  <path
+                    d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 000-1.69L9.54 5.98A1 1 0 008 6.82z" />
+                </svg>
+                <svg
+                  id="flash-svg-pause"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#fff"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  style="display: none">
+                  <line x1="10" y1="6" x2="10" y2="18" />
+                  <line x1="14" y1="6" x2="14" y2="18" />
+                </svg>
+              </div>
+              <div id="fs-flash">
+                <svg
+                  id="fs-flash-svg"
+                  viewBox="0 0 24 24"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path
+                    d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M16 21h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+                </svg>
+              </div>
+              <div id="subtitle-overlay">
+                <div class="sub-line" id="sub-line-1"></div>
+                <div class="sub-line" id="sub-line-2"></div>
+              </div>
+            </div>
+
+            <!-- Audio cover -->
+            <div class="audio-cover" id="audio-cover">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M9 18V5l12-2v13" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="16" r="3" />
+              </svg>
+              <p id="audio-title"></p>
+            </div>
+
+            <!-- Resume bar -->
+            <div id="resume-bar" class="resume-bar">
+              <span id="resume-msg"></span>
+              <div class="resume-actions">
+                <button
+                  class="btn-icon active"
+                  style="
+                    border: 1px solid var(--accent-border);
+                    padding: 4px 10px;
+                    font-size: 12px;
+                    color: var(--accent);
+                    background: var(--accent-dim);
+                  "
+                  onclick="resumeFrom()">
+                  ▶ Resume
+                </button>
+                <button
+                  class="btn-icon"
+                  style="
+                    border: 1px solid var(--border);
+                    padding: 4px 10px;
+                    font-size: 12px;
+                  "
+                  onclick="dismissResume()">
+                  Start over
+                </button>
+              </div>
+            </div>
+          </div>
+          <!-- /video-area -->
+
+          <!-- Subtitle drawer -->
+          <div class="sub-drawer" id="sub-drawer">
+            <div class="sub-drawer-inner">
+              <div class="sub-row">
+                <div class="sub-slot">
+                  <!-- Sub 1 -->
+                  <div
+                    class="sub-upload"
+                    id="sub1-drop"
+                    onclick="document.getElementById('sub1-input').click()"
+                    ondragover="e => e.preventDefault()"
+                    ondrop="dropSub(event, 1)">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round">
+                      <path
+                        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    <span class="badge badge-en">EN</span>
+                    <span class="name" id="sub1-label">Add subtitle 1</span>
+                    <input
+                      type="file"
+                      id="sub1-input"
+                      accept=".srt,.vtt"
+                      style="display: none"
+                      onchange="loadSub(this.files[0], 1)" />
+                  </div>
+                  <div class="sub-controls">
+                    <button
+                      class="sub-tog active"
+                      id="tog1"
+                      onclick="toggleSub(1)">
+                      Visible
+                    </button>
+                    <label>Size</label>
+                    <input
+                      type="range"
+                      id="sz1"
+                      min="11"
+                      max="24"
+                      step="1"
+                      value="15"
+                      oninput="setSz(1, this.value)" />
+                    <span class="sz-label" id="sz1-label">15px</span>
+                  </div>
+                </div>
+                <div class="sub-slot">
+                  <!-- Sub 2 -->
+                  <div
+                    class="sub-upload"
+                    id="sub2-drop"
+                    onclick="document.getElementById('sub2-input').click()"
+                    ondragover="e => e.preventDefault()"
+                    ondrop="dropSub(event, 2)">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round">
+                      <path
+                        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    <span class="badge badge-zh">ZH</span>
+                    <span class="name" id="sub2-label">Add subtitle 2</span>
+                    <input
+                      type="file"
+                      id="sub2-input"
+                      accept=".srt,.vtt"
+                      style="display: none"
+                      onchange="loadSub(this.files[0], 2)" />
+                  </div>
+                  <div class="sub-controls">
+                    <button
+                      class="sub-tog active"
+                      id="tog2"
+                      onclick="toggleSub(2)">
+                      Visible
+                    </button>
+                    <label>Size</label>
+                    <input
+                      type="range"
+                      id="sz2"
+                      min="11"
+                      max="28"
+                      step="1"
+                      value="18"
+                      oninput="setSz(2, this.value)" />
+                    <span class="sz-label" id="sz2-label">18px</span>
+                  </div>
+                </div>
+              </div>
+              <div class="audio-track-wrap" id="audio-track-wrap">
+                <label for="audio-track-select">Audio tracks</label>
+                <select
+                  id="audio-track-select"
+                  onchange="changeAudioTrack(this.value)"></select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Controls bar -->
+          <div class="controls-bar">
+            <!-- Seek + time -->
+            <div class="seek-row">
+              <span class="file-name-label" id="file-name-label"
+                >No file loaded</span
+              >
+              <input
+                type="range"
+                id="seek"
+                min="0"
+                max="100"
+                step="0.05"
+                value="0"
+                oninput="seekTo(this.value)" />
+              <span class="time" id="time-label">0:00 / 0:00</span>
+            </div>
+            <!-- Buttons -->
+            <div class="btn-row">
+              <!-- Play/pause -->
+              <button
+                class="btn-icon lg"
+                onclick="togglePlay()"
+                title="Play/Pause (Space)">
+                <svg
+                  id="play-icon"
+                  viewBox="0 0 24 24"
+                  fill="var(--text)"
+                  stroke="none">
+                  <path
+                    d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 000-1.69L9.54 5.98A1 1 0 008 6.82z" />
+                </svg>
+              </button>
+
+              <!-- Volume -->
+              <button class="btn-icon" onclick="toggleMute()" title="Mute (M)">
+                <svg
+                  id="vol-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path
+                    id="vol-waves"
+                    d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
+                </svg>
+              </button>
+              <input
+                type="range"
+                id="vol"
+                min="0"
+                max="1"
+                step="0.05"
+                value="1"
+                oninput="setVol(this.value)" />
+
+              <div class="divider-v"></div>
+
+              <!-- Speed -->
+              <div class="speed-row" id="speed-btns"></div>
+              <input
+                type="range"
+                id="spd-fine"
+                min="0.25"
+                max="4"
+                step="0.25"
+                value="1"
+                oninput="setSpd(this.value)"
+                title="Fine speed" />
+              <span id="spd-label">1x</span>
+
+              <div class="divider-v"></div>
+
+              <!-- Subtitles toggle -->
+              <button
+                class="btn-icon"
+                id="sub-btn"
+                onclick="toggleSubDrawer()"
+                title="Subtitles">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <path d="M7 15h4M15 15h2M7 11h2M13 11h4" />
+                </svg>
+              </button>
+
+              <!-- Fullscreen -->
+              <button
+                class="btn-icon"
+                onclick="toggleFullscreen()"
+                title="Fullscreen (F)"
+                style="margin-left: auto">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path
+                    d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M16 21h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+                </svg>
+              </button>
+
+              <!-- Keyboard hints -->
+              <button
+                class="btn-icon"
+                onclick="toggleHints()"
+                title="Keyboard shortcuts"
+                id="hints-btn">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <rect x="2" y="6" width="20" height="12" rx="2" />
+                  <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Hints popup -->
+          <div class="hints-popup" id="hints-popup">
+            <div class="hint"><kbd>Space</kbd> play / pause</div>
+            <div class="hint"><kbd>→</kbd><kbd>←</kbd> skip 10s</div>
+            <div class="hint"><kbd>↑</kbd><kbd>↓</kbd> speed ±0.25x</div>
+            <div class="hint"><kbd>M</kbd> mute</div>
+            <div class="hint"><kbd>F</kbd> fullscreen</div>
+            <div class="hint"><kbd>B</kbd> toggle sidebar</div>
+          </div>
+        </div>
+        <!-- /main -->
+      </div>
+      <!-- /body -->
+    </div>
+    <!-- /shell -->
+
+    <script>
+      const vid = document.getElementById("vid");
+      const flash = document.getElementById("pause-flash");
+      const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
+      let subs = { 1: [], 2: [] },
+        subVis = { 1: true, 2: true };
+
+      function getDeviceType() {
+        const width = window.innerWidth || screen.width;
+        return width < 768 ? "smartphone" : "computer";
+      }
+
+      function isSmartphone() {
+        return getDeviceType() === "smartphone";
+      }
+
+      function isComputer() {
+        return getDeviceType() === "computer";
+      }
+
+      console.log(
+        "Device type:",
+        getDeviceType(),
+        "Viewport:",
+        window.innerWidth,
+        "x",
+        window.innerHeight,
+      );
+      let saveKey = null,
+        resumeTime = null,
+        saveTimer = null,
+        flashTimer = null,
+        clickTimer = null;
+      let allFiles = [],
+        currentIndex = -1;
+
+      // ── Speed buttons ──
+      const sbEl = document.getElementById("speed-btns");
+      speeds.forEach(s => {
+        const b = document.createElement("button");
+        b.className = "spd-btn" + (s === 1 ? " active" : "");
+        b.textContent = s + "x";
+        b.onclick = () => applySpd(s);
+        sbEl.appendChild(b);
+      });
+
+      function applySpd(s) {
+        vid.playbackRate = s;
+        document.getElementById("spd-fine").value = s;
+        document.getElementById("spd-label").textContent = s + "x";
+        document
+          .querySelectorAll(".spd-btn")
+          .forEach(b =>
+            b.classList.toggle("active", parseFloat(b.textContent) === s),
+          );
+      }
+      function setSpd(v) {
+        const s = parseFloat(v);
+        vid.playbackRate = s;
+        document.getElementById("spd-label").textContent = s.toFixed(2) + "x";
+        document
+          .querySelectorAll(".spd-btn")
+          .forEach(b =>
+            b.classList.toggle("active", parseFloat(b.textContent) === s),
+          );
+      }
+
+      function fmt(s) {
+        const h = Math.floor(s / 3600),
+          m = Math.floor((s % 3600) / 60),
+          sc = Math.floor(s % 60);
+        return h > 0
+          ? `${h}:${String(m).padStart(2, "0")}:${String(sc).padStart(2, "0")}`
+          : `${m}:${String(sc).padStart(2, "0")}`;
+      }
+
+      // ── Sidebar ──
+      const sidebar = document.getElementById("sidebar");
+      let sidebarCollapsed = false;
+
+      function toggleSidebar() {
+        sidebarCollapsed = !sidebarCollapsed;
+        sidebar.classList.toggle("collapsed", sidebarCollapsed);
+        document
+          .getElementById("sidebar-toggle")
+          .classList.toggle("collapsed", sidebarCollapsed);
+      }
+
+      const resizeHandle = document.getElementById("resize-handle");
+      let isResizing = false,
+        resizeStartX = 0,
+        resizeStartW = 0;
+      const MIN_W = 160,
+        MAX_W = 520;
+
+      resizeHandle.addEventListener("mousedown", e => {
+        isResizing = true;
+        resizeStartX = e.clientX;
+        resizeStartW = sidebar.offsetWidth;
+        resizeHandle.classList.add("dragging");
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+        e.preventDefault();
+      });
+      document.addEventListener("mousemove", e => {
+        if (!isResizing) return;
+        sidebar.style.width =
+          Math.min(
+            MAX_W,
+            Math.max(MIN_W, resizeStartW + e.clientX - resizeStartX),
+          ) + "px";
+      });
+      document.addEventListener("mouseup", () => {
+        if (!isResizing) return;
+        isResizing = false;
+        resizeHandle.classList.remove("dragging");
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      });
+
+      // ── Folder / file browser ──
+      const VIDEO_EXT = [
+        "mp4",
+        "webm",
+        "mkv",
+        "mov",
+        "avi",
+        "m4v",
+        "ogv",
+        "flv",
+        "wmv",
+        "ts",
+        "m3u8",
+      ];
+      const AUDIO_EXT = [
+        "mp3",
+        "m4a",
+        "aac",
+        "ogg",
+        "flac",
+        "wav",
+        "opus",
+        "wma",
+      ];
+      const ALL_EXT = [...VIDEO_EXT, ...AUDIO_EXT];
+
+      function extOf(name) {
+        return name.split(".").pop().toLowerCase();
+      }
+      function isAudio(name) {
+        return AUDIO_EXT.includes(extOf(name));
+      }
+
+      function loadFolder(files) {
+        allFiles = Array.from(files)
+          .filter(f => ALL_EXT.includes(extOf(f.name)))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        if (!allFiles.length) {
+          document.getElementById("file-list").innerHTML =
+            '<div class="empty-list">No media files found</div>';
+          return;
+        }
+        const folderBar = document.getElementById("folder-name-bar");
+        folderBar.classList.remove("hidden");
+        const p = files[0].webkitRelativePath || files[0].name;
+        folderBar.textContent =
+          "📁 " +
+          (p.includes("/") ? p.split("/")[0] : "Folder") +
+          " · " +
+          allFiles.length +
+          " files";
+        document.getElementById("search-wrap").classList.remove("hidden");
+        renderList(allFiles);
+      }
+
+      function renderList(files) {
+        const list = document.getElementById("file-list");
+        if (!files.length) {
+          list.innerHTML = '<div class="empty-list">No matches</div>';
+          return;
+        }
+        list.innerHTML = "";
+        files.forEach(f => {
+          const idx = allFiles.indexOf(f),
+            audio = isAudio(f.name),
+            ext = extOf(f.name);
+          const item = document.createElement("div");
+          item.className =
+            "file-item" + (idx === currentIndex ? " active" : "");
+          item.dataset.idx = idx;
+          item.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        ${audio ? '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>' : '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>'}
+      </svg>
+      <span class="fi-name" title="${f.name}">${f.name}</span>
+      <span class="fi-ext">${ext}</span>`;
+          item.onclick = () => selectFile(idx);
+          list.appendChild(item);
+        });
+      }
+
+      function filterList(q) {
+        renderList(
+          q.trim() === ""
+            ? allFiles
+            : allFiles.filter(f =>
+                f.name.toLowerCase().includes(q.toLowerCase()),
+              ),
+        );
+      }
+
+      function selectFile(idx) {
+        currentIndex = idx;
+        document
+          .querySelectorAll(".file-item")
+          .forEach(el =>
+            el.classList.toggle("active", parseInt(el.dataset.idx) === idx),
+          );
+        loadFile(allFiles[idx]);
+      }
+
+      // ── HLS instance (reused across files) ──
+      let hlsInstance = null;
+
+      function destroyHls() {
+        if (hlsInstance) {
+          hlsInstance.destroy();
+          hlsInstance = null;
+        }
+      }
+
+      // ── Load file ──
+      function loadFile(f) {
+        if (!f) return;
+        const audio = isAudio(f.name);
+        document
+          .getElementById("video-container")
+          .classList.toggle("active", !audio);
+        document
+          .getElementById("audio-cover")
+          .classList.toggle("active", audio);
+        if (audio) document.getElementById("audio-title").textContent = f.name;
+
+        saveKey = "vp_" + f.name + "_" + f.size;
+        document.getElementById("drop-zone").style.display = "none";
+        document.getElementById("file-name-label").textContent = f.name;
+
+        const np = document.getElementById("now-playing");
+        np.style.display = "flex";
+        document.getElementById("now-playing-label").textContent =
+          f.name.length > 36 ? f.name.slice(0, 34) + "…" : f.name;
+
+        const pos = localStorage.getItem(saveKey);
+
+        function afterLoad() {
+          if (pos && parseFloat(pos) > 5) {
+            resumeTime = parseFloat(pos);
+            document.getElementById("resume-msg").textContent =
+              "Continue from " + fmt(resumeTime) + "?";
+            document.getElementById("resume-bar").style.display = "flex";
+          } else {
+            document.getElementById("resume-bar").style.display = "none";
+          }
+        }
+
+        // Tear down any previous HLS instance
+        destroyHls();
+
+        const ext = extOf(f.name);
+        const objectURL = URL.createObjectURL(f);
+
+        // ── HLS path (m3u8 only) ──
+        if (ext === "m3u8") {
+          if (Hls.isSupported()) {
+            hlsInstance = new Hls({ enableWorker: true });
+            hlsInstance.loadSource(objectURL);
+            hlsInstance.attachMedia(vid);
+
+            hlsInstance.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+              afterLoad();
+              updateAudioTrackUI();
+              vid.play().catch(() => {});
+            });
+
+            hlsInstance.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+              updateAudioTrackUI();
+            });
+
+            hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+              if (data.fatal) {
+                // HLS failed — fall back to native src
+                console.warn("HLS error, falling back to native:", data);
+                destroyHls();
+                vid.src = objectURL;
+                vid.load();
+                vid.play().catch(() => {});
+                afterLoad();
+                vid.addEventListener("loadedmetadata", updateAudioTrackUI, { once: true });
+              }
+            });
+            return; // HLS handles everything from here
+          } else if (vid.canPlayType("application/vnd.apple.mpegurl")) {
+            // Safari native HLS
+            vid.src = objectURL;
+            vid.load();
+            vid.play().catch(() => {});
+            afterLoad();
+            vid.addEventListener("loadedmetadata", updateAudioTrackUI, { once: true });
+            return;
+          }
+        }
+
+        // ── Native fallback for all other formats ──
+        vid.src = objectURL;
+        vid.load();
+        vid.play().catch(() => {});
+        afterLoad();
+        vid.addEventListener("loadedmetadata", updateAudioTrackUI, { once: true });
+      }
+
+      function resumeFrom() {
+        vid.currentTime = resumeTime;
+        document.getElementById("resume-bar").style.display = "none";
+        vid.play();
+      }
+      function dismissResume() {
+        resumeTime = null;
+        document.getElementById("resume-bar").style.display = "none";
+        vid.currentTime = 0;
+      }
+
+      function onDragOver(e) {
+        e.preventDefault();
+        document.getElementById("drop-zone").classList.add("drag");
+      }
+      function onDragLeave(e) {
+        document.getElementById("drop-zone").classList.remove("drag");
+      }
+      function dropVideo(e) {
+        e.preventDefault();
+        document.getElementById("drop-zone").classList.remove("drag");
+        const f = e.dataTransfer.files[0];
+        if (f) loadFile(f);
+      }
+
+      // ── Subtitles ──
+      function dropSub(e, n) {
+        e.preventDefault();
+        const f = e.dataTransfer.files[0];
+        if (f) loadSub(f, n);
+      }
+      function loadSub(f, n) {
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => {
+          subs[n] = parseSRT(ev.target.result);
+          document.getElementById("sub" + n + "-label").textContent = f.name;
+          document.getElementById("sub" + n + "-drop").classList.add("loaded");
+        };
+        r.readAsText(f, "UTF-8");
+      }
+      function parseSRT(txt) {
+        const cues = [];
+        const blocks = txt
+          .replace(/\r\n/g, "\n")
+          .replace(/\r/g, "\n")
+          .trim()
+          .split(/\n\n+/);
+        for (const b of blocks) {
+          const lines = b.trim().split("\n");
+          if (lines.length < 2) continue;
+          let ti = 0;
+          while (ti < lines.length && lines[ti].indexOf("-->") === -1) ti++;
+          if (ti >= lines.length) continue;
+          const m = lines[ti].match(
+            /(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)/,
+          );
+          if (!m) continue;
+          const st = +m[1] * 3600 + +m[2] * 60 + +m[3] + +m[4] / 1000;
+          const en = +m[5] * 3600 + +m[6] * 60 + +m[7] + +m[8] / 1000;
+          const text = lines
+            .slice(ti + 1)
+            .join("\n")
+            .replace(/<[^>]+>/g, "")
+            .trim();
+          if (text) cues.push({ st, en, text });
+        }
+        return cues;
+      }
+      function getActiveCue(n, t) {
+        return subs[n].find(c => t >= c.st && t <= c.en) || null;
+      }
+      function updateSubs() {
+        const t = vid.currentTime;
+        [1, 2].forEach(n => {
+          const el = document.getElementById("sub-line-" + n),
+            cue = getActiveCue(n, t);
+          if (cue && subVis[n]) {
+            el.textContent = cue.text;
+            el.style.display = "inline-block";
+          } else el.style.display = "none";
+        });
+      }
+      function toggleSub(n) {
+        subVis[n] = !subVis[n];
+        const b = document.getElementById("tog" + n);
+        b.textContent = subVis[n] ? "Visible" : "Hidden";
+        b.classList.toggle("active", subVis[n]);
+        updateSubs();
+      }
+      function setSz(n, v) {
+        document.getElementById("sub-line-" + n).style.fontSize = v + "px";
+        document.getElementById("sz" + n + "-label").textContent = v + "px";
+      }
+
+      let subDrawerOpen = false;
+      function toggleSubDrawer() {
+        subDrawerOpen = !subDrawerOpen;
+        document
+          .getElementById("sub-drawer")
+          .classList.toggle("open", subDrawerOpen);
+        document
+          .getElementById("sub-btn")
+          .classList.toggle("active", subDrawerOpen);
+      }
+
+      let hintsOpen = false;
+      function toggleHints() {
+        hintsOpen = !hintsOpen;
+        document
+          .getElementById("hints-popup")
+          .classList.toggle("open", hintsOpen);
+        document
+          .getElementById("hints-btn")
+          .classList.toggle("active", hintsOpen);
+      }
+
+      // ── Playback ──
+      vid.addEventListener("timeupdate", () => {
+        if (!vid.duration) return;
+        document.getElementById("seek").value =
+          (vid.currentTime / vid.duration) * 100;
+        document.getElementById("time-label").textContent =
+          fmt(vid.currentTime) + " / " + fmt(vid.duration);
+        updateSubs();
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          if (saveKey && vid.currentTime > 5)
+            localStorage.setItem(saveKey, vid.currentTime);
+        }, 2000);
+      });
+
+      function setPlayIcon(playing) {
+        const icon = document.getElementById("play-icon");
+        if (playing) {
+          icon.innerHTML =
+            '<line x1="10" y1="5" x2="10" y2="19" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round"/><line x1="14" y1="5" x2="14" y2="19" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round"/>';
+          icon.setAttribute("fill", "none");
+        } else {
+          icon.innerHTML =
+            '<path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 000-1.69L9.54 5.98A1 1 0 008 6.82z"/>';
+          icon.setAttribute("fill", "var(--text)");
+        }
+      }
+      function showFlash(justPaused) {
+        document.getElementById("flash-svg-play").style.display = justPaused
+          ? "none"
+          : "block";
+        document.getElementById("flash-svg-pause").style.display = justPaused
+          ? "block"
+          : "none";
+        flash.style.opacity = "1";
+        clearTimeout(flashTimer);
+        flashTimer = setTimeout(() => (flash.style.opacity = "0"), 600);
+      }
+      function togglePlay(fromClick = false) {
+        if (vid.paused) {
+          vid.play();
+          if (fromClick) showFlash(false);
+        } else {
+          vid.pause();
+          if (fromClick) showFlash(true);
+        }
+      }
+      function toggleFullscreen() {
+        const area = document.getElementById("video-area");
+        const isFs =
+          document.fullscreenElement || document.webkitFullscreenElement;
+        if (!isFs)
+          (area.requestFullscreen || area.webkitRequestFullscreen).call(area);
+        else
+          (document.exitFullscreen || document.webkitExitFullscreen).call(
+            document,
+          );
+        showFsFlash();
+      }
+      function showFsFlash() {
+        const fsEl = document.getElementById("fs-flash");
+        const isFs =
+          document.fullscreenElement || document.webkitFullscreenElement;
+        document.getElementById("fs-flash-svg").innerHTML = isFs
+          ? '<path d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M16 21h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>'
+          : '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>';
+        fsEl.style.opacity = "1";
+        setTimeout(() => (fsEl.style.opacity = "0"), 700);
+      }
+
+      document.getElementById("click-overlay").addEventListener("click", () => {
+        if (clickTimer) {
+          clearTimeout(clickTimer);
+          clickTimer = null;
+          toggleFullscreen();
+        } else {
+          clickTimer = setTimeout(() => {
+            clickTimer = null;
+            togglePlay(true);
+          }, 220);
+        }
+      });
+
+      vid.addEventListener("loadedmetadata", () => {
+        if (!hlsInstance) updateAudioTrackUI();
+      });
+      vid.addEventListener("loadeddata", () => {
+        if (!hlsInstance) updateAudioTrackUI();
+      });
+      vid.addEventListener("play", () => setPlayIcon(true));
+      vid.addEventListener("pause", () => {
+        setPlayIcon(false);
+        if (saveKey && vid.currentTime > 5)
+          localStorage.setItem(saveKey, vid.currentTime);
+      });
+      vid.addEventListener("ended", () => {
+        if (saveKey) localStorage.removeItem(saveKey);
+        setPlayIcon(false);
+        if (currentIndex >= 0 && currentIndex < allFiles.length - 1)
+          selectFile(currentIndex + 1);
+      });
+
+      function seekTo(v) {
+        if (vid.duration) vid.currentTime = (v / 100) * vid.duration;
+      }
+      function setVol(v) {
+        vid.volume = v;
+        vid.muted = false;
+        document.getElementById("vol-waves").style.display = "";
+      }
+
+      function updateAudioTrackUI() {
+        const wrap = document.getElementById("audio-track-wrap");
+        const select = document.getElementById("audio-track-select");
+
+        // ── HLS audio tracks ──
+        if (hlsInstance && hlsInstance.audioTracks && hlsInstance.audioTracks.length > 1) {
+          const tracks = hlsInstance.audioTracks;
+          const currentTrack = hlsInstance.audioTrack;
+
+          wrap.classList.remove("single");
+          wrap.classList.add("dual");
+          wrap.style.display = "flex";
+          select.disabled = false;
+          select.innerHTML = tracks
+            .map(
+              (t, i) =>
+                `<option value="${i}" ${i === currentTrack ? "selected" : ""}>Track ${i + 1}${t.name ? " · " + t.name : ""}${t.lang ? " [" + t.lang + "]" : ""}</option>`,
+            )
+            .join("");
+          select.value = String(currentTrack >= 0 ? currentTrack : 0);
+          return;
+        }
+
+        // ── Native audioTracks API (Safari) ──
+        const nativeTracks =
+          "audioTracks" in vid && vid.audioTracks
+            ? Array.from(vid.audioTracks)
+            : [];
+
+        if (nativeTracks.length >= 2) {
+          wrap.classList.remove("single");
+          wrap.classList.add("dual");
+          wrap.style.display = "flex";
+          select.disabled = false;
+          const current = nativeTracks.findIndex(t => t.enabled);
+          select.innerHTML = nativeTracks
+            .map(
+              (t, i) =>
+                `<option value="${i}" ${t.enabled ? "selected" : ""}>Track ${i + 1}${t.label ? " · " + t.label : ""}</option>`,
+            )
+            .join("");
+          select.value = current >= 0 ? String(current) : "0";
+          return;
+        }
+
+        // ── Single track fallback ──
+        wrap.classList.remove("dual");
+        wrap.classList.add("single");
+        wrap.style.display = "flex";
+        select.innerHTML = '<option value="0">Single audio track</option>';
+        select.disabled = true;
+      }
+
+      function changeAudioTrack(index) {
+        const idx = parseInt(index, 10);
+
+        // ── HLS track switch ──
+        if (hlsInstance && hlsInstance.audioTracks && hlsInstance.audioTracks.length > 1) {
+          hlsInstance.audioTrack = idx;
+          return;
+        }
+
+        // ── Native audioTracks API (Safari fallback) ──
+        if (!("audioTracks" in vid) || !vid.audioTracks) return;
+        const tracks = Array.from(vid.audioTracks);
+        tracks.forEach((t, i) => {
+          t.enabled = i === idx;
+        });
+        updateAudioTrackUI();
+      }
+
+      function toggleMute() {
+        vid.muted = !vid.muted;
+        document.getElementById("vol-waves").style.display = vid.muted
+          ? "none"
+          : "";
+      }
+
+      document.addEventListener("keydown", e => {
+        if (e.target.tagName === "INPUT") return;
+        if (e.code === "Space") {
+          e.preventDefault();
+          togglePlay();
+        }
+        if (e.code === "KeyB") toggleSidebar();
+        if (!vid.src) return;
+        if (e.code === "ArrowRight")
+          vid.currentTime = Math.min(vid.duration, vid.currentTime + 10);
+        if (e.code === "ArrowLeft")
+          vid.currentTime = Math.max(0, vid.currentTime - 10);
+        if (e.code === "ArrowUp") {
+          e.preventDefault();
+          applySpd(
+            Math.min(4, parseFloat((vid.playbackRate + 0.25).toFixed(2))),
+          );
+        }
+        if (e.code === "ArrowDown") {
+          e.preventDefault();
+          applySpd(
+            Math.max(0.25, parseFloat((vid.playbackRate - 0.25).toFixed(2))),
+          );
+        }
+        if (e.code === "KeyM") toggleMute();
+        if (e.code === "KeyF") toggleFullscreen();
+      });
+    </script>
+  </body>
+</html>
