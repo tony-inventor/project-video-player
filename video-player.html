@@ -645,7 +645,9 @@
         gap: 0;
         z-index: 10;
         position: relative;
-        transition: transform 0.25s ease, opacity 0.25s ease;
+        transition:
+          transform 0.25s ease,
+          opacity 0.25s ease;
       }
       .controls-bar.hidden {
         transform: translateY(100%);
@@ -1166,11 +1168,23 @@
               </div>
               <div class="filter-checks">
                 <label class="filter-check">
-                  <input type="checkbox" id="filter-video" checked onchange="filterList(document.getElementById('search-input').value)">
+                  <input
+                    type="checkbox"
+                    id="filter-video"
+                    checked
+                    onchange="
+                      filterList(document.getElementById('search-input').value)
+                    " />
                   Video
                 </label>
                 <label class="filter-check">
-                  <input type="checkbox" id="filter-music" checked onchange="filterList(document.getElementById('search-input').value)">
+                  <input
+                    type="checkbox"
+                    id="filter-music"
+                    checked
+                    onchange="
+                      filterList(document.getElementById('search-input').value)
+                    " />
                   Music
                 </label>
               </div>
@@ -1275,17 +1289,37 @@
 
             <!-- Audio cover -->
             <div class="audio-cover" id="audio-cover">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round">
-                <path d="M9 18V5l12-2v13" />
-                <circle cx="6" cy="18" r="3" />
-                <circle cx="18" cy="16" r="3" />
-              </svg>
-              <p id="audio-title"></p>
+              <canvas
+                id="waveform-canvas"
+                style="
+                  position: absolute;
+                  inset: 0;
+                  width: 100%;
+                  height: 100%;
+                  opacity: 0.85;
+                  pointer-events: none;
+                "></canvas>
+              <div
+                style="
+                  position: relative;
+                  z-index: 1;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 12px;
+                ">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+                <p id="audio-title"></p>
+              </div>
             </div>
 
             <!-- Resume bar -->
@@ -1441,30 +1475,66 @@
             <div class="controls-body">
               <!-- Seek row -->
               <div class="seek-row">
-                <input type="range" id="seek" min="0" max="100" step="0.05" value="0" oninput="seekTo(this.value)">
+                <input
+                  type="range"
+                  id="seek"
+                  min="0"
+                  max="100"
+                  step="0.05"
+                  value="0"
+                  oninput="seekTo(this.value)" />
                 <span class="time" id="time-label">0:00 / 0:00</span>
               </div>
               <!-- File name row -->
-              <div class="seek-row" style="padding-top:4px">
-                <span class="file-name-label" id="file-name-label">No file loaded</span>
+              <div class="seek-row" style="padding-top: 4px">
+                <span class="file-name-label" id="file-name-label"
+                  >No file loaded</span
+                >
               </div>
               <!-- Buttons -->
               <div class="btn-row">
                 <!-- Volume -->
-                <button class="btn-icon" onclick="toggleMute()" title="Mute (M)">
-                  <svg id="vol-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                    <path id="vol-waves" d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/>
+                <button
+                  class="btn-icon"
+                  onclick="toggleMute()"
+                  title="Mute (M)">
+                  <svg
+                    id="vol-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path
+                      id="vol-waves"
+                      d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
                   </svg>
                 </button>
-                <input type="range" id="vol" min="0" max="1" step="0.05" value="0.5" oninput="setVol(this.value)"/>
+                <input
+                  type="range"
+                  id="vol"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value="0.5"
+                  oninput="setVol(this.value)" />
 
                 <div class="divider-v"></div>
 
                 <!-- Play -->
-                <button class="btn-icon lg" onclick="togglePlay()" title="Play/Pause (Space)">
-                  <svg id="play-icon" viewBox="0 0 24 24" fill="var(--text)" stroke="none">
-                    <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 000-1.69L9.54 5.98A1 1 0 008 6.82z"/>
+                <button
+                  class="btn-icon lg"
+                  onclick="togglePlay()"
+                  title="Play/Pause (Space)">
+                  <svg
+                    id="play-icon"
+                    viewBox="0 0 24 24"
+                    fill="var(--text)"
+                    stroke="none">
+                    <path
+                      d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 000-1.69L9.54 5.98A1 1 0 008 6.82z" />
                   </svg>
                 </button>
 
@@ -1472,31 +1542,93 @@
 
                 <!-- Speed -->
                 <div class="speed-row" id="speed-btns"></div>
-                <input type="range" id="spd-fine" min="0.25" max="4" step="0.25" value="1" oninput="setSpd(this.value)" title="Fine speed"/>
+                <input
+                  type="range"
+                  id="spd-fine"
+                  min="0.25"
+                  max="4"
+                  step="0.25"
+                  value="1"
+                  oninput="setSpd(this.value)"
+                  title="Fine speed" />
                 <span id="spd-label">1x</span>
 
                 <div class="divider-v"></div>
 
                 <!-- Subtitles toggle -->
-                <button class="btn-icon" id="sub-btn" onclick="toggleSubDrawer()" title="Subtitles">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="4" width="20" height="16" rx="2"/>
-                    <path d="M7 15h4M15 15h2M7 11h2M13 11h4"/>
+                <button
+                  class="btn-icon"
+                  id="sub-btn"
+                  onclick="toggleSubDrawer()"
+                  title="Subtitles">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="M7 15h4M15 15h2M7 11h2M13 11h4" />
                   </svg>
                 </button>
 
+                <!-- Visualizer mode -->
+                <select
+                  id="viz-mode-select"
+                  title="Visualizer style"
+                  onchange="setVizMode(this.value)"
+                  style="
+                    display: none;
+                    background: var(--surface2);
+                    color: var(--text2);
+                    border: 1px solid var(--border);
+                    border-radius: var(--radius-sm);
+                    padding: 3px 6px;
+                    font-size: 11px;
+                    font-family: inherit;
+                    cursor: pointer;
+                    outline: none;
+                  ">
+                  <option value="bars">Bars</option>
+                  <option value="wave">Wave</option>
+                  <option value="circle">Circle</option>
+                  <option value="dots">Dots</option>
+                </select>
+
                 <!-- Fullscreen -->
-                <button class="btn-icon" onclick="toggleFullscreen()" title="Fullscreen (F)" style="margin-left:auto">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M16 21h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>
+                <button
+                  class="btn-icon"
+                  onclick="toggleFullscreen()"
+                  title="Fullscreen (F)"
+                  style="margin-left: auto">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path
+                      d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M16 21h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
                   </svg>
                 </button>
 
                 <!-- Keyboard hints -->
-                <button class="btn-icon" onclick="toggleHints()" title="Keyboard shortcuts" id="hints-btn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="6" width="20" height="12" rx="2"/>
-                    <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/>
+                <button
+                  class="btn-icon"
+                  onclick="toggleHints()"
+                  title="Keyboard shortcuts"
+                  id="hints-btn">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="2" y="6" width="20" height="12" rx="2" />
+                    <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8" />
                   </svg>
                 </button>
               </div>
@@ -1633,7 +1765,9 @@
       }
 
       // Mouse move over video area → show controls
-      document.getElementById("video-area").addEventListener("mousemove", showControls);
+      document
+        .getElementById("video-area")
+        .addEventListener("mousemove", showControls);
 
       // Mouse over sentinel strip (bottom zone) → show controls
       controlsSentinel.addEventListener("mouseenter", showControls);
@@ -1647,11 +1781,15 @@
       });
 
       // Touch: tap video area → show controls for 3s
-      document.getElementById("video-area").addEventListener("touchstart", () => {
-        showControls();
-        clearTimeout(hideTimer);
-        hideTimer = setTimeout(hideControls, 3000);
-      }, { passive: true });
+      document.getElementById("video-area").addEventListener(
+        "touchstart",
+        () => {
+          showControls();
+          clearTimeout(hideTimer);
+          hideTimer = setTimeout(hideControls, 3000);
+        },
+        { passive: true },
+      );
 
       const resizeHandle = document.getElementById("resize-handle");
       let isResizing = false,
@@ -1808,7 +1946,13 @@
         document
           .getElementById("audio-cover")
           .classList.toggle("active", audio);
-        if (audio) document.getElementById("audio-title").textContent = f.name;
+        if (audio) {
+          document.getElementById("audio-title").textContent = f.name;
+          stopWaveform();
+        } else {
+          stopWaveform();
+        }
+        updateVizDropdownVisibility();
 
         saveKey = "vp_" + f.name + "_" + f.size;
         document.getElementById("drop-zone").style.display = "none";
@@ -1864,7 +2008,9 @@
                 vid.load();
                 vid.play().catch(() => {});
                 afterLoad();
-                vid.addEventListener("loadedmetadata", updateAudioTrackUI, { once: true });
+                vid.addEventListener("loadedmetadata", updateAudioTrackUI, {
+                  once: true,
+                });
               }
             });
             return; // HLS handles everything from here
@@ -1874,7 +2020,9 @@
             vid.load();
             vid.play().catch(() => {});
             afterLoad();
-            vid.addEventListener("loadedmetadata", updateAudioTrackUI, { once: true });
+            vid.addEventListener("loadedmetadata", updateAudioTrackUI, {
+              once: true,
+            });
             return;
           }
         }
@@ -1884,7 +2032,9 @@
         vid.load();
         vid.play().catch(() => {});
         afterLoad();
-        vid.addEventListener("loadedmetadata", updateAudioTrackUI, { once: true });
+        vid.addEventListener("loadedmetadata", updateAudioTrackUI, {
+          once: true,
+        });
       }
 
       function resumeFrom() {
@@ -2075,7 +2225,9 @@
       }
 
       document.getElementById("click-overlay").addEventListener("click", () => {
-        const isAudioMode = document.getElementById("audio-cover").classList.contains("active");
+        const isAudioMode = document
+          .getElementById("audio-cover")
+          .classList.contains("active");
         if (isAudioMode) {
           // Audio: single click = play/pause, no fullscreen
           togglePlay(true);
@@ -2093,8 +2245,6 @@
           }
         }
       });
-
-
 
       vid.addEventListener("loadedmetadata", () => {
         if (!hlsInstance) updateAudioTrackUI();
@@ -2129,7 +2279,11 @@
         const select = document.getElementById("audio-track-select");
 
         // ── HLS audio tracks ──
-        if (hlsInstance && hlsInstance.audioTracks && hlsInstance.audioTracks.length > 1) {
+        if (
+          hlsInstance &&
+          hlsInstance.audioTracks &&
+          hlsInstance.audioTracks.length > 1
+        ) {
           const tracks = hlsInstance.audioTracks;
           const currentTrack = hlsInstance.audioTrack;
 
@@ -2181,7 +2335,11 @@
         const idx = parseInt(index, 10);
 
         // ── HLS track switch ──
-        if (hlsInstance && hlsInstance.audioTracks && hlsInstance.audioTracks.length > 1) {
+        if (
+          hlsInstance &&
+          hlsInstance.audioTracks &&
+          hlsInstance.audioTracks.length > 1
+        ) {
           hlsInstance.audioTrack = idx;
           return;
         }
@@ -2201,6 +2359,181 @@
           ? "none"
           : "";
       }
+
+      // ── Waveform visualizer ──
+      let audioCtx = null,
+        analyser = null,
+        sourceNode = null,
+        waveAnimId = null;
+      let vizMode = "bars";
+      let waveRO = null;
+
+      function setVizMode(mode) {
+        vizMode = mode;
+        // If already playing, restart draw loop with new mode
+        if (waveAnimId) {
+          cancelAnimationFrame(waveAnimId);
+          waveAnimId = null;
+          startWaveform();
+        }
+      }
+
+      function initAudioContext() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.8;
+        sourceNode = audioCtx.createMediaElementSource(vid);
+        sourceNode.connect(analyser);
+        analyser.connect(audioCtx.destination);
+      }
+
+      function startWaveform() {
+        try {
+          initAudioContext();
+        } catch (e) {
+          return;
+        }
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        const canvas = document.getElementById("waveform-canvas");
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+
+        if (waveRO) {
+          waveRO.disconnect && waveRO.disconnect();
+          waveRO.unobserve && waveRO.unobserve(canvas);
+        }
+        function resize() {
+          canvas.width = canvas.offsetWidth * devicePixelRatio;
+          canvas.height = canvas.offsetHeight * devicePixelRatio;
+        }
+        resize();
+        waveRO = new ResizeObserver(resize);
+        waveRO.observe(canvas);
+
+        const freqData = new Uint8Array(analyser.frequencyBinCount);
+        const timeData = new Uint8Array(analyser.fftSize);
+
+        cancelAnimationFrame(waveAnimId);
+
+        function draw() {
+          waveAnimId = requestAnimationFrame(draw);
+          const W = canvas.width,
+            H = canvas.height;
+          ctx.clearRect(0, 0, W, H);
+
+          if (vizMode === "bars") {
+            analyser.getByteFrequencyData(freqData);
+            const count = freqData.length;
+            const bw = W / count;
+            for (let i = 0; i < count; i++) {
+              const v = freqData[i] / 255;
+              const bh = v * H * 0.45;
+              const alpha = 0.25 + v * 0.75;
+              ctx.fillStyle = `rgba(124,106,255,${alpha})`;
+              ctx.fillRect(i * bw, H / 2 - bh, Math.max(1, bw - 1), bh);
+              ctx.fillRect(i * bw, H / 2, Math.max(1, bw - 1), bh);
+            }
+          } else if (vizMode === "wave") {
+            analyser.getByteTimeDomainData(timeData);
+            const count = timeData.length;
+            ctx.lineWidth = 2 * devicePixelRatio;
+            ctx.strokeStyle = "rgba(124,106,255,0.9)";
+            ctx.shadowColor = "rgba(124,106,255,0.5)";
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            for (let i = 0; i < count; i++) {
+              const x = (i / count) * W;
+              const y = (timeData[i] / 128.0) * (H / 2);
+              i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          } else if (vizMode === "circle") {
+            analyser.getByteFrequencyData(freqData);
+            const count = freqData.length;
+            const cx = W / 2,
+              cy = H / 2;
+            const radius = Math.min(W, H) * 0.22;
+            for (let i = 0; i < count; i++) {
+              const v = freqData[i] / 255;
+              const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+              const len = v * Math.min(W, H) * 0.28;
+              const alpha = 0.2 + v * 0.8;
+              ctx.strokeStyle = `rgba(124,106,255,${alpha})`;
+              ctx.lineWidth = Math.max(1, (W / count) * 1.5);
+              ctx.beginPath();
+              ctx.moveTo(
+                cx + Math.cos(angle) * radius,
+                cy + Math.sin(angle) * radius,
+              );
+              ctx.lineTo(
+                cx + Math.cos(angle) * (radius + len),
+                cy + Math.sin(angle) * (radius + len),
+              );
+              ctx.stroke();
+            }
+            // center circle
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius * 0.85, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(124,106,255,0.25)";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          } else if (vizMode === "dots") {
+            analyser.getByteFrequencyData(freqData);
+            const count = freqData.length;
+            const cols = Math.ceil(Math.sqrt(count * (W / H)));
+            const rows = Math.ceil(count / cols);
+            const cellW = W / cols;
+            const cellH = H / rows;
+            for (let i = 0; i < count; i++) {
+              const v = freqData[i] / 255;
+              const col = i % cols;
+              const row = Math.floor(i / cols);
+              const x = col * cellW + cellW / 2;
+              const y = row * cellH + cellH / 2;
+              const r = v * Math.min(cellW, cellH) * 0.48;
+              if (r < 0.5) continue;
+              const alpha = 0.15 + v * 0.85;
+              ctx.beginPath();
+              ctx.arc(x, y, r, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(124,106,255,${alpha})`;
+              ctx.fill();
+            }
+          }
+        }
+        draw();
+      }
+
+      function stopWaveform() {
+        cancelAnimationFrame(waveAnimId);
+        waveAnimId = null;
+        const canvas = document.getElementById("waveform-canvas");
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+
+      function updateVizDropdownVisibility() {
+        const isAudioMode = document
+          .getElementById("audio-cover")
+          .classList.contains("active");
+        document.getElementById("viz-mode-select").style.display = isAudioMode
+          ? ""
+          : "none";
+      }
+
+      vid.addEventListener("play", () => {
+        if (
+          document.getElementById("audio-cover").classList.contains("active")
+        ) {
+          startWaveform();
+        }
+      });
+      vid.addEventListener("pause", stopWaveform);
+      vid.addEventListener("ended", stopWaveform);
 
       document.addEventListener("keydown", e => {
         if (e.target.tagName === "INPUT") return;
