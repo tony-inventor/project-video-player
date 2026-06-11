@@ -2459,7 +2459,12 @@
             for (let i = 0; i < count; i++) {
               const v = freqData[i] / 255;
               const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
-              const len = v * Math.min(W, H) * 0.28;
+              // Smoothly ramp up the first ~5% of bins to avoid the low-frequency spike at 12 o'clock
+              let ramp = i < 35 ? 0.8 : 1.3;
+              ramp = i > 270 ? 2.0 : ramp;
+              //const ramp = i < count * 0.01 ? i / (count * 0.06) : 1;
+              const len = v * ramp * Math.min(W, H) * 0.35;
+              //const len = v * Math.min(W, H) * 0.28;
               const alpha = 0.2 + v * 0.8;
               ctx.strokeStyle = `rgba(124,106,255,${alpha})`;
               ctx.lineWidth = Math.max(1, (W / count) * 1.5);
