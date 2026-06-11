@@ -2452,7 +2452,7 @@
             ctx.shadowBlur = 0;
           } else if (vizMode === "circle") {
             analyser.getByteFrequencyData(freqData);
-            const count = freqData.length;
+            const count = Math.min(400, freqData.length); // only musically active bins
             const cx = W / 2,
               cy = H / 2;
             const radius = Math.min(W, H) * 0.22;
